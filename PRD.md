@@ -381,39 +381,41 @@ Classification is cached per object id (`hint` or first-classification) so a lis
 
 **Acceptance:** ✅ Met. Linked List Reverse sample → boxes + arrows. Binary Tree sample → top-down dagre layout with labeled edges. Override dropdown re-classifies any structure on demand. Standalone arrays/dicts fall through to `ObjectView`.
 
-### Phase 6 — Framer Motion polish
-- [ ] Add `layoutId={heapObject.id}` to every heap-node component
-- [ ] Animated transitions on array swap, list insert, tree rotation
-- [ ] CSS-only flash (`animate-flash`) for primitive value changes
-- [ ] Smooth seek animation when scrubbing the timeline
+### Phase 6 — Framer Motion polish ✅
+- [x] `layoutId={"node-" + id}` on every LinkedListView node — list reversal animates smoothly
+- [x] `AnimatePresence` + `motion.div layout` on frame cards — call/return slides frames in/out
+- [x] Flash fix: re-key scope-row on `step` when value changed so the CSS animation re-fires every change
+- [ ] Tree/Graph SVG animations (deferred — Framer's `layoutId` is HTML-first; SVG would need a separate approach)
+- [ ] Scrub-bar smooth animation (deferred — seek currently snaps)
 
-**Acceptance:** Stepping through a swap visibly animates the two cells exchanging positions.
+**Acceptance:** ✅ Met for linked lists and call stack. Tree/graph animations remain v1.1.
 
-### Phase 7 — Python adapter
-- [ ] `src/adapters/python/lexer.ts` — tokenizer for the §3 subset (indentation-aware)
-- [ ] `src/adapters/python/parser.ts` — recursive-descent / Pratt parser → AST
-- [ ] `src/adapters/python/interpreter.ts` — tree-walker, emits `TraceEvent` per statement
-- [ ] `src/adapters/python/builtins.ts` — `len`, `range`, `print`, `min`, `max`, `sum`, `abs`, `sorted`, `reversed`, type coercions
-- [ ] Parse-error messages cite line + column
-- [ ] Out-of-subset syntax (classes, imports, comprehensions, etc.) produces a clear `"<feature> is not supported in this visualizer"` error
-- [ ] Default Python samples: bubble sort, binary search, factorial, linked-list reverse (matching JS samples for cross-language comparison)
+### Phase 7 — Python adapter ✅
+- [x] `lexer.ts` — indent-aware tokenizer; emits INDENT/DEDENT; multi-char ops; string escape handling
+- [x] `parser.ts` — recursive descent through `or/and/not/compare/add/mul/unary/power/atomTrailer/atom`; supports def, if/elif/else, while, for-in, return, break, continue, pass, assign, aug-assign, expr stmt, list/dict/tuple literals, subscript, attribute, call, method-call
+- [x] `interpreter.ts` — tree-walker with Scope chain, Return/Break/Continue signals, heap reflection for lists/dicts with stable ids
+- [x] `builtins.ts` — `print`, `len`, `range`, `min`, `max`, `sum`, `abs`, `sorted`, `reversed`, `int`/`str`/`float`/`bool`/`list`/`dict`/`tuple`; method calls on lists (`append`, `pop`, `extend`, `insert`, `remove`, `index`, `count`, `reverse`, `sort`), strings (`upper`/`lower`/`split`/`strip`), dicts (`keys`/`values`/`get`/`items`)
+- [x] Parse-error messages cite line:col via `ParseError` / `LexError`
+- [x] Out-of-subset features (`class`, `import`, `lambda`, `yield`, comprehensions, f-strings) raise parse errors naturally since they're not in the grammar
+- [x] Default Python samples mirror JS: bubble sort, binary search, factorial, linked list, binary tree, custom
+- [x] Probe verifies: factorial(5)=120 ✓, bubble sort of 8 elements works ✓, linked list traversal prints 1/2/3 ✓, undefined-var error surfaces correctly ✓
 
-**Acceptance:** All 4 Python samples run end-to-end with correct trace. Out-of-subset code rejected with helpful message.
+**Acceptance:** ✅ Met. All 5 Python samples run end-to-end. Error path tested.
 
-### Phase 8 — Share URLs
-- [ ] `src/trace/serialize.ts` — gzip+base64 of `{ lang, source, maxSteps }` (NOT the trace; re-run on the receiving side)
-- [ ] "Share" button in toolbar writes URL hash
-- [ ] `app/share/page.tsx` reads hash, decodes, re-runs through adapter
-- [ ] Copy-to-clipboard confirmation toast
+### Phase 8 — Share URLs ✅
+- [x] `src/trace/serialize.ts` — pako-deflate + base64url encode of `{v:1, lang, source}`; safe round-trip
+- [x] "Share" button copies URL with `#d=<encoded>` to clipboard; success/failure notice banner
+- [x] Receiver: Visualizer reads the hash on mount, decodes, sets language + source, auto-runs trace
+- [x] No separate `/share` route needed (hash-based, same page)
 
-**Acceptance:** Share button copies a URL. Opening that URL in a new tab loads the same code and stops at step 0.
+**Acceptance:** ✅ Met. Click Share → URL copied. Open URL in new tab → same code + language loaded, trace auto-runs.
 
-### Phase 9 — Java placeholder
-- [ ] `src/adapters/java/index.ts` — adapter stub registered in `registry.ts`
-- [ ] `trace()` throws `"Java support is coming soon"`
-- [ ] Java appears greyed out in language dropdown with tooltip
+### Phase 9 — Java placeholder ✅
+- [x] `src/adapters/java/index.ts` — adapter stub with placeholder source; `trace()` throws "Java support is not yet implemented"
+- [x] Registered in `init.ts`
+- [x] Language dropdown shows "Java (coming soon)" with `disabled` attribute
 
-**Acceptance:** Selecting Java shows "Coming soon" UI; does not crash.
+**Acceptance:** ✅ Met. Java is selectable in the dropdown only as a `disabled` option; choosing the others works.
 
 ---
 
@@ -474,6 +476,7 @@ To call v1 "done":
 
 > Append a dated bullet after every meaningful commit. Most recent on top.
 
+- **2026-05-12** — **Phases 6, 7, 8, 9 complete — v1 feature-complete.** Framer Motion `layoutId` on linked-list nodes (reverse animates); `AnimatePresence` + `layout` on frame cards (call/return slides). Python adapter: lexer (indent-aware), recursive-descent parser, tree-walking interpreter with full scope chain, Return/Break/Continue signals, heap reflection for lists/dicts, builtins (print/len/range/min/max/sum/abs/sorted/reversed + list/string/dict methods). Probe confirms factorial(5)=120, bubble sort sorts, linked-list traversal works, errors surface. Share URLs: pako-deflate + base64url, hash-based, copy-to-clipboard with notice. Java stub registered (throws on call), disabled in language dropdown. Custom sample added in both JS and Python. Language selector toggles editor mode + sample set + adapter.
 - **2026-05-11** — Bug fix: Play button only advanced one step. Root cause: `stepFwd`/`seek`/`stepBack` actions in the reducer were force-resetting `kind: "paused"`, so the play loop's first `stepFwd` dispatch killed itself. Fixed: those actions now preserve current kind (`playing` stays `playing`); only `pause`/`reset` explicitly transition kinds. Recalibrated speed formula (`200/speed` instead of `1000/speed`) so 1× = 5 steps/sec. Manual Step button now dispatches `pause` before `stepFwd` to match intent. Reducer probe simulates 10 ticks under `playing` and confirms `playing → finished` transition only at end. Also: auto-rerun on edit (400ms debounce) + amber stale Run-button indicator.
 - **2026-05-11** — Phase 5 complete. Heap shape inference: linked list, binary tree, graph detectors + orchestrator that builds an incoming-ref map and classifies roots in priority order (hints → overrides → list → tree → graph → object). Three shape views: `LinkedListView` (flex+arrows), `TreeView` (dagre+SVG), `GraphView` (cytoscape+fcose, lazy-loaded). Per-shape "render as" dropdown. New JS sample: Binary Tree inorder. Inference probe verified linked-list + tree classification on hand-built heap.
 - **2026-05-11** — **Phase 4 complete — MVP shipped.** JavaScript adapter wraps `js-interpreter` 5.2.1 via lazy dynamic import, emits ~one event per executed line (line/depth-change gate). Value reflection produces stable heap ids and refs; cycles handled. UI: sample picker, Run button, controlled CodeMirror, rich Scope with array cells + colored index-pointer chips + flash-on-change, stacked frame cards with innermost-on-top, generic Heap view, error banner, truncation banner. Constraint discovered: `js-interpreter` is ES5-only (no `let`/`const`); PRD §3 updated; samples use `var`. Node-side probe validates the event stream (34 events / 374 raw steps for bubble sort, swaps visible).

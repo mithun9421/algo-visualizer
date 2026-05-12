@@ -1,4 +1,5 @@
 import { javascriptAdapter } from "./javascript";
+import { pythonAdapter } from "./python";
 import { javaAdapter } from "./java";
 import { registerAdapter } from "./registry";
 
@@ -8,6 +9,6 @@ export function initAdapters(): void {
   if (initialized) return;
   initialized = true;
   registerAdapter(javascriptAdapter);
+  registerAdapter(pythonAdapter);
   registerAdapter(javaAdapter);
-  // Python adapter registers itself when Phase 7 lands.
 }
