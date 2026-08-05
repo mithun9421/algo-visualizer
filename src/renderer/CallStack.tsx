@@ -1,54 +1,72 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { usePlayerStore } from "@/player/store";
 import { currentEvent } from "@/player/reducer";
 import Scope from "./Scope";
+import RecursionTreeView from "./RecursionTree";
+import { buildRecursionTree } from "@/trace/recursionTree";
 import type { Frame, TraceEvent } from "@/trace/types";
+
+type PanelTab = "stack" | "tree";
 
 export default function CallStack() {
   const state = usePlayerStore((s) => s.state);
   const evt = currentEvent(state);
   const prevEvt = getPrev(state, evt);
+  const [tab, setTab] = useState<PanelTab>("stack");
 
   const frames = evt?.stack ?? [];
   const prevFrames = prevEvt?.stack ?? [];
 
+  const trace =
+    state.kind === "paused" || state.kind === "playing" || state.kind === "finished"
+      ? state.trace
+      : undefined;
+  const tree = useMemo(() => buildRecursionTree(trace ?? []), [trace]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-neutral-950">
-      <Header title="Call Stack + Scope" subtitle={evt?.event} />
-      <div className="flex-1 overflow-auto p-3">
-        {frames.length === 0 && (
-          <p className="text-xs text-neutral-600">No active frame. Press Run.</p>
-        )}
-        <LayoutGroup id="call-stack">
-          <AnimatePresence initial={false}>
-            {[...frames].reverse().map((frame, displayIdx) => {
-              const stackIdx = frames.length - 1 - displayIdx;
-              const prev = matchPrevFrame(prevFrames, frame, stackIdx);
-              return (
-                <motion.div
-                  key={`${stackIdx}-${frame.fnName}`}
-                  layout
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  className="mb-2"
-                >
-                  <FrameCard
-                    frame={frame}
-                    prev={prev}
-                    heap={evt?.heap ?? {}}
-                    step={evt?.step ?? 0}
-                    isTop={displayIdx === 0}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </LayoutGroup>
-      </div>
+      <Header title="Call Stack + Scope" subtitle={evt?.event} tab={tab} onTabChange={setTab} />
+      {tab === "stack" ? (
+        <div className="flex-1 overflow-auto p-3">
+          {frames.length === 0 && (
+            <p className="text-xs text-neutral-600">No active frame. Press Run.</p>
+          )}
+          <LayoutGroup id="call-stack">
+            <AnimatePresence initial={false}>
+              {[...frames].reverse().map((frame, displayIdx) => {
+                const stackIdx = frames.length - 1 - displayIdx;
+                const prev = matchPrevFrame(prevFrames, frame, stackIdx);
+                return (
+                  <motion.div
+                    key={`${stackIdx}-${frame.fnName}`}
+                    layout
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    className="mb-2"
+                  >
+                    <FrameCard
+                      frame={frame}
+                      prev={prev}
+                      heap={evt?.heap ?? {}}
+                      step={evt?.step ?? 0}
+                      isTop={displayIdx === 0}
+                    />
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </LayoutGroup>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <RecursionTreeView tree={tree} currentStep={evt?.step ?? 0} />
+        </div>
+      )}
     </div>
   );
 }
@@ -107,11 +125,50 @@ function getPrev(
   return trace[currIdx - 1];
 }
 
-function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+function Header({
+  title,
+  subtitle,
+  tab,
+  onTabChange,
+}: {
+  title: string;
+  subtitle?: string;
+  tab: PanelTab;
+  onTabChange: (tab: PanelTab) => void;
+}) {
   return (
     <div className="flex items-center justify-between border-b border-neutral-800 bg-neutral-900/50 px-3 py-1.5 text-xs">
       <span className="font-medium uppercase tracking-wider text-neutral-400">{title}</span>
-      {subtitle && <span className="text-neutral-500">{subtitle}</span>}
+      <div className="flex items-center gap-2">
+        {subtitle && <span className="text-neutral-500">{subtitle}</span>}
+        <div className="flex overflow-hidden rounded border border-neutral-800">
+          <TabButton label="Stack" active={tab === "stack"} onClick={() => onTabChange("stack")} />
+          <TabButton label="Tree" active={tab === "tree"} onClick={() => onTabChange("tree")} />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider transition-colors " +
+        (active ? "bg-emerald-900/40 text-emerald-300" : "text-neutral-500 hover:text-neutral-300")
+      }
+    >
+      {label}
+    </button>
   );
 }

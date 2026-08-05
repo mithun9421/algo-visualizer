@@ -8,6 +8,7 @@ import type {
   Value,
 } from "@/trace/types";
 import { BUILTIN_GLOBALS, displayString, makeReflector } from "./reflect";
+import { downlevelLetConst } from "./downlevel";
 import { SAMPLE_BUBBLE_SORT } from "@/samples/javascript";
 
 const DEFAULT_MAX_STEPS = 10000;
@@ -27,6 +28,14 @@ interface StateLike {
   func_?: {
     node?: { id?: { name?: string }; type?: string };
   };
+  // js-interpreter's internal phase counter for If/ConditionalExpression
+  // states (both share stepConditionalExpression). Phase 2 means the
+  // test already ran and the branch already ran — the state is only kept
+  // around to be popped, with no further work. Reading this lets us skip
+  // that pop-only "closing" revisit; if a future js-interpreter version
+  // renames or drops the field, mode_ is simply undefined and we fall
+  // back to the old (safe, if slightly noisier) behavior.
+  mode_?: number;
 }
 
 function uniqueScopes(stack: StateLike[]): ScopeLike[] {
@@ -138,9 +147,15 @@ export const javascriptAdapter: LanguageAdapter = {
       i.setProperty(consoleObj, "log", logFn);
     };
 
+    // The bundled interpreter only understands ES5; downlevel `let`/`const`
+    // to `var` (same-length rewrite, so lines/columns still line up with
+    // the source shown in the editor) so modern-looking sample code runs
+    // instead of failing to parse.
+    const es5Source = downlevelLetConst(source);
+
     let interpInstance: InstanceType<typeof InterpreterCtor>;
     try {
-      interpInstance = new InterpreterCtor(source, initFn);
+      interpInstance = new InterpreterCtor(es5Source, initFn);
     } catch (e) {
       const err = e as { message?: string; loc?: { line?: number; column?: number } };
       return {
@@ -175,12 +190,22 @@ export const javascriptAdapter: LanguageAdapter = {
       "ForInStatement",
       "WhileStatement",
       "DoWhileStatement",
-      "BlockStatement",
       "BreakStatement",
       "ContinueStatement",
       "FunctionDeclaration",
-      "Program",
     ]);
+
+    // js-interpreter re-surfaces these container nodes as the top of the
+    // state stack in between each of their children (e.g. after every
+    // statement inside a `{ ... }` block, the stack briefly reveals the
+    // BlockStatement itself again before the next child is pushed; same
+    // for Program between top-level statements). Their `loc` points at the
+    // block's opening line (often the same line as the enclosing
+    // if/for/while) or, for Program, permanently at line 1 — so surfacing
+    // them as real steps makes the highlighted line jump backward after
+    // almost every statement. They carry no executable content of their
+    // own, so we always skip past them rather than deduping by line.
+    const CONTAINER_TYPES = new Set(["BlockStatement", "Program"]);
 
     while (alive) {
       if (stepCount > maxSteps * 50) {
@@ -212,6 +237,18 @@ export const javascriptAdapter: LanguageAdapter = {
       if (stack.length === 0) break;
       const top = stack[stack.length - 1];
       if (!top.node) continue;
+      if (CONTAINER_TYPES.has(top.node.type)) continue;
+      if (
+        (top.node.type === "IfStatement" || top.node.type === "ConditionalExpression") &&
+        top.mode_ === 2
+      ) {
+        // Closing revisit: the test and the taken branch already ran: this
+        // state is only back on top of the stack to be popped. Surfacing
+        // it would flash the `if` line again right after its block
+        // finishes, with no locals changed — skip straight to whatever
+        // comes next.
+        continue;
+      }
 
       const line = top.node.loc?.start?.line ?? lastLine;
       const depth = uniqueScopes(stack).length;

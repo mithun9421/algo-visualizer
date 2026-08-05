@@ -34,6 +34,14 @@ export const SAMPLE_PY_FACTORIAL = `def factorial(n):
 result = factorial(5)
 print("5! =", result)`;
 
+export const SAMPLE_PY_FIBONACCI = `def fib(n):
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+result = fib(6)
+print("fib(6) =", result)`;
+
 export const SAMPLE_PY_LINKED_LIST = `def make_node(val):
     return {"val": val, "next": None}
 
@@ -101,6 +109,7 @@ export const PY_SAMPLES: PySample[] = [
   { key: "bubbleSort", label: "Bubble Sort", source: SAMPLE_PY_BUBBLE_SORT },
   { key: "binarySearch", label: "Binary Search", source: SAMPLE_PY_BINARY_SEARCH },
   { key: "factorial", label: "Factorial (recursion)", source: SAMPLE_PY_FACTORIAL },
+  { key: "fibonacci", label: "Fibonacci (recursion)", source: SAMPLE_PY_FIBONACCI },
   { key: "linkedList", label: "Linked List Reverse", source: SAMPLE_PY_LINKED_LIST },
   { key: "binaryTree", label: "Binary Tree (inorder)", source: SAMPLE_PY_BINARY_TREE },
   { key: "custom", label: "Custom (write your own)", source: SAMPLE_PY_CUSTOM },

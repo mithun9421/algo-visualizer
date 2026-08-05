@@ -36,6 +36,13 @@ export const SAMPLE_FACTORIAL = `function factorial(n) {
 var result = factorial(5);
 console.log("5! =", result);`;
 
+export const SAMPLE_FIBONACCI = `function fib(n) {
+  if (n <= 1) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+var result = fib(6);
+console.log("fib(6) =", result);`;
+
 export const SAMPLE_LINKED_LIST_REVERSE = `function makeNode(val) {
   return { val: val, next: null };
 }
@@ -103,6 +110,7 @@ export const JS_SAMPLES: JsSample[] = [
   { key: "bubbleSort", label: "Bubble Sort", source: SAMPLE_BUBBLE_SORT },
   { key: "binarySearch", label: "Binary Search", source: SAMPLE_BINARY_SEARCH },
   { key: "factorial", label: "Factorial (recursion)", source: SAMPLE_FACTORIAL },
+  { key: "fibonacci", label: "Fibonacci (recursion)", source: SAMPLE_FIBONACCI },
   { key: "linkedList", label: "Linked List Reverse", source: SAMPLE_LINKED_LIST_REVERSE },
   { key: "binaryTree", label: "Binary Tree (inorder)", source: SAMPLE_BINARY_TREE },
   { key: "custom", label: "Custom (write your own)", source: SAMPLE_CUSTOM },
